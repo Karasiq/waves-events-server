@@ -7,6 +7,7 @@ import akka.stream.typed.scaladsl.ActorSink
 import com.wavesplatform.account.{Address, AddressOrAlias, Alias}
 import com.wavesplatform.events.Height
 import com.wavesplatform.events.client.NodeApiClient
+import com.wavesplatform.events.config.EventsClientConfig
 import com.wavesplatform.lang.v1.traits.domain.Recipient
 import com.wavesplatform.lang.v1.traits.domain.Tx.MassTransfer
 import com.wavesplatform.transaction.lease.LeaseTransaction
@@ -14,7 +15,6 @@ import com.wavesplatform.transaction.transfer.TransferTransaction
 import com.wavesplatform.transaction.{DataTransaction, Transaction}
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 import scala.language.implicitConversions
 
 object NodeTxFeed {
@@ -50,32 +50,33 @@ object NodeTxFeed {
   }
 
   // Behaviors
-  def behavior(target: ActorRef[Transactions], after: FiniteDuration)
+  def behavior(config: EventsClientConfig)
               (implicit mat: Materializer): Behavior[Message] = {
     Behaviors.withTimers { timers =>
-      timers.startPeriodicTimer(Timers.UpdateHeight, UpdateHeight, after)
-      active(timers, after)(0, Map.empty)
+      timers.startPeriodicTimer(Timers.UpdateHeight, UpdateHeight, config.updateHeightInterval)
+      active(timers, config)(0, Map.empty)
     }
   }
 
-  private def active(timers: TimerScheduler[Message], after: FiniteDuration)
+  private def active(timers: TimerScheduler[Message], config: EventsClientConfig)
                     (height: Height, subscriptions: SubscriptionMap)
                     (implicit mat: Materializer): Behavior[Message] = {
     Behaviors.receive[Message] { (ctx, msg) =>
       import ctx.executionContext
+      val nodeApiClient = NodeApiClient(config)
 
       msg match {
         case Subscribe(actor, subscription) =>
           val current = subscriptions.getOrElse(subscription, Set.empty)
           ctx.watchWith(actor, UnsubscribeAll(actor))
-          active(timers, after)(height, subscriptions + (subscription -> (current + actor)))
+          active(timers, config)(height, subscriptions + (subscription -> (current + actor)))
 
         case Unsubscribe(actor, subscription) =>
           subscriptions.get(subscription) match {
             case Some(actors) =>
               val newSet = actors - actor
-              if (newSet.isEmpty) active(timers, after)(height, subscriptions - subscription)
-              else active(timers, after)(height, subscriptions + (subscription -> newSet))
+              if (newSet.isEmpty) active(timers, config)(height, subscriptions - subscription)
+              else active(timers, config)(height, subscriptions + (subscription -> newSet))
 
             case None =>
               Behaviors.same
@@ -86,7 +87,7 @@ object NodeTxFeed {
             .mapValues(_ - actor)
             .filterNot(_._2.isEmpty)
 
-          active(timers, after)(height, newSubscriptions)
+          active(timers, config)(height, newSubscriptions)
 
         case UpdateHeight =>
           Future.successful(23).foreach(height => ctx.self ! RequestNewTransactions(height))
@@ -95,7 +96,7 @@ object NodeTxFeed {
         case RequestNewTransactions(newHeight) =>
           if (newHeight > height) {
             ctx.log.debug("Requesting new blocks from {}", newHeight)
-            NodeApiClient.blocks(height, newHeight)
+            nodeApiClient.blocks(height, newHeight)
               .map(block => ProcessNewTransactions(block.transactionData))
               .runWith(ActorSink.actorRef(ctx.self, SetNewHeight(newHeight), Failure))
             Behaviors.same
@@ -109,7 +110,7 @@ object NodeTxFeed {
 
         case SetNewHeight(newHeight) =>
           ctx.log.debug("Setting new height: {}", newHeight)
-          active(timers, after)(newHeight, Map.empty)
+          active(timers, config)(newHeight, Map.empty)
 
         case Failure(exc) =>
           ctx.log.error(exc, "Waves updater error")

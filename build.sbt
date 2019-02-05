@@ -17,24 +17,20 @@ lazy val commonSettings = Seq(
   // ProjectDeps.enableScalaMeta
 )
 
-lazy val clientSettings = Seq(
-  name := "waves-events-client"
-)
-
-lazy val serverSettings = Seq(
-  name := "waves-events-server"
-)
-
 lazy val common = project
   .settings(commonSettings)
 
 lazy val client = project
-  .settings(commonSettings, clientSettings)
+  .settings(commonSettings, name := "waves-events-client")
   .dependsOn(common)
 
 lazy val server = project
-  .settings(commonSettings, serverSettings)
+  .settings(commonSettings, name := "waves-events-server")
   .dependsOn(common, client)
+
+lazy val serverApp = (project in file("server") / "app")
+  .settings(commonSettings, name := "waves-events-server-app")
+  .dependsOn(server)
 
 lazy val tests = project
   .settings(commonSettings)

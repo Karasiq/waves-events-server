@@ -1,13 +1,12 @@
 package com.wavesplatform.events.client
 
-import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.wavesplatform.block.Block
 import com.wavesplatform.events.Height
+import com.wavesplatform.events.config.EventsClientConfig
 import com.wavesplatform.events.streams.BlockStream
 
-import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
 //noinspection AccessorLikeMethodIsEmptyParen
@@ -16,31 +15,19 @@ trait NodeApiClient {
   def blocks(fromHeight: Height, toHeight: Height = Int.MaxValue): BlockStream
 }
 
-object NodeApiClient extends NodeApiClient {
-  def height(): Future[Height] = ???
+object NodeApiClient {
+  def apply(config: EventsClientConfig)(implicit ec: ExecutionContext): NodeApiClient = {
+    new NodeApiClientImpl(config)
+  }
+}
+
+private[client] class NodeApiClientImpl(config: EventsClientConfig)(implicit ec: ExecutionContext) extends NodeApiClient {
+  def height(): Future[Height] = Future.successful(100) // TODO: Actual api
 
   def blocks(fromHeight: Height, toHeight: Height = Int.MaxValue): BlockStream = {
-    Source(fromHeight to toHeight by 1000)
+    Source(fromHeight to toHeight by config.blocksBatchSize)
       .mapAsync(1)(height => Future.successful(Seq.empty[Block]))
       .takeWhile(_.nonEmpty)
-      .mapConcat(identity)
-  }
-
-  def scheduleBlocksStream(): BlockStream = {
-    Source.tick(1 second, 1 second, NotUsed)
-      .mapAsync(1) { _ => Future.successful(123: Height) }
-      .statefulMapConcat { () =>
-        var height = 0
-
-      { newHeight =>
-        if (height == newHeight) {
-          Nil
-        } else {
-          height = newHeight
-          blocks(height, newHeight) :: Nil
-        }
-      }
-      }
-      .flatMapConcat(identity)
+      .mapConcat(_.toVector)
   }
 }
