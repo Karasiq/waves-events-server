@@ -17,48 +17,50 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.language.implicitConversions
 
-object Updater {
+object NodeTxFeed {
   sealed trait Subscription
   object Subscription {
     final case class Address(address: AddressOrAlias) extends Subscription
     final case class DataKey(key: String) extends Subscription
   }
 
-  trait Msg
-  final case class Subscribe(subscription: Subscription, ref: ActorRef[Transactions]) extends Msg
-  final case class Unsubscribe(subscription: Subscription, ref: ActorRef[Transactions]) extends Msg
-  private final case class RequestNewTransactions(newHeight: Int) extends Msg
-  private final case class ProcessNewTransactions(blocks: Seq[Transaction]) extends Msg
-  private final case class SetNewHeight(newHeight: Height) extends Msg
-  private final case class Failure(exc: Throwable) extends Msg
+  trait Message
+  final case class Subscribe(ref: ActorRef[Transactions], subscription: Subscription) extends Message
+  final case class Unsubscribe(ref: ActorRef[Transactions], subscription: Subscription) extends Message
+  final case class UnsubscribeAll(ref: ActorRef[Transactions]) extends Message
+  private final case class RequestNewTransactions(newHeight: Int) extends Message
+  private final case class ProcessNewTransactions(blocks: Seq[Transaction]) extends Message
+  private final case class SetNewHeight(newHeight: Height) extends Message
+  private final case class Failure(exc: Throwable) extends Message
 
   final case class Transactions(tx: Seq[Transaction])
 
   private object Timers {
     case object UpdateHeight
   }
-  private case object UpdateHeight extends Msg
+  private case object UpdateHeight extends Message
 
   def behavior(target: ActorRef[Transactions], after: FiniteDuration)
-              (implicit mat: Materializer): Behavior[Msg] = {
+              (implicit mat: Materializer): Behavior[Message] = {
     Behaviors.withTimers { timers =>
       timers.startPeriodicTimer(Timers.UpdateHeight, UpdateHeight, after)
       active(timers, after)(0, Map.empty)
     }
   }
 
-  private def active(timers: TimerScheduler[Msg], after: FiniteDuration)
+  private def active(timers: TimerScheduler[Message], after: FiniteDuration)
                     (height: Height, subscriptions: Map[Subscription, Set[ActorRef[Transactions]]])
-                    (implicit mat: Materializer): Behavior[Msg] = {
-    Behaviors.receive[Msg] { (ctx, msg) =>
+                    (implicit mat: Materializer): Behavior[Message] = {
+    Behaviors.receive[Message] { (ctx, msg) =>
       import ctx.executionContext
 
       msg match {
-        case Subscribe(subscription, actor) =>
+        case Subscribe(actor, subscription) =>
           val current = subscriptions.getOrElse(subscription, Set.empty)
+          ctx.watchWith(actor, UnsubscribeAll(actor))
           active(timers, after)(height, subscriptions + (subscription -> (current + actor)))
 
-        case Unsubscribe(subscription, actor) =>
+        case Unsubscribe(actor, subscription) =>
           subscriptions.get(subscription) match {
             case Some(actors) =>
               val newSet = actors - actor
@@ -68,6 +70,9 @@ object Updater {
             case None =>
               Behaviors.same
           }
+
+        case UnsubscribeAll(actor) =>
+          // TODO
 
         case UpdateHeight =>
           Future.successful(23).foreach(height => ctx.self ! RequestNewTransactions(height))
