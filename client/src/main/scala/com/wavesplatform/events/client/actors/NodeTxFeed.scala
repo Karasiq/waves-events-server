@@ -18,28 +18,38 @@ import scala.concurrent.duration.FiniteDuration
 import scala.language.implicitConversions
 
 object NodeTxFeed {
+  // Types
+  type SubscriptionMap = Map[Subscription, Set[ActorRef[Transactions]]]
+  type TransactionsSeq = Seq[Transaction]
+
   sealed trait Subscription
   object Subscription {
     final case class Address(address: AddressOrAlias) extends Subscription
     final case class DataKey(key: String) extends Subscription
   }
 
+  final case class Transactions(tx: TransactionsSeq) extends AnyVal
+
+  // Messages
   trait Message
+
   final case class Subscribe(ref: ActorRef[Transactions], subscription: Subscription) extends Message
   final case class Unsubscribe(ref: ActorRef[Transactions], subscription: Subscription) extends Message
   final case class UnsubscribeAll(ref: ActorRef[Transactions]) extends Message
+
   private final case class RequestNewTransactions(newHeight: Int) extends Message
-  private final case class ProcessNewTransactions(blocks: Seq[Transaction]) extends Message
+  private final case class ProcessNewTransactions(blocks: TransactionsSeq) extends Message
   private final case class SetNewHeight(newHeight: Height) extends Message
   private final case class Failure(exc: Throwable) extends Message
 
-  final case class Transactions(tx: Seq[Transaction])
+  private case object UpdateHeight extends Message
 
+  // Timers
   private object Timers {
     case object UpdateHeight
   }
-  private case object UpdateHeight extends Message
 
+  // Behaviors
   def behavior(target: ActorRef[Transactions], after: FiniteDuration)
               (implicit mat: Materializer): Behavior[Message] = {
     Behaviors.withTimers { timers =>
@@ -49,7 +59,7 @@ object NodeTxFeed {
   }
 
   private def active(timers: TimerScheduler[Message], after: FiniteDuration)
-                    (height: Height, subscriptions: Map[Subscription, Set[ActorRef[Transactions]]])
+                    (height: Height, subscriptions: SubscriptionMap)
                     (implicit mat: Materializer): Behavior[Message] = {
     Behaviors.receive[Message] { (ctx, msg) =>
       import ctx.executionContext
@@ -108,7 +118,7 @@ object NodeTxFeed {
     }
   }
 
-  private def processTransactions(subscriptions: Map[Subscription, Set[ActorRef[Transactions]]])(transactions: Seq[Transaction]): Unit = {
+  private def processTransactions(subscriptions: SubscriptionMap)(transactions: TransactionsSeq): Unit = {
     implicit def recipientToAddressOrAlias(r: Recipient): AddressOrAlias = (r match {
       case Recipient.Address(bytes) => Address.fromBytes(bytes.arr)
       case Recipient.Alias(alias) => Alias.fromString(alias)
@@ -140,7 +150,7 @@ object NodeTxFeed {
       .mapValues(_.map(_._2))
 
     subscriptions.foreach { case (subscription, actors) =>
-      def sendTransactions(txs: Seq[Transaction]): Unit = {
+      def sendTransactions(txs: TransactionsSeq): Unit = {
         actors.foreach(_ ! Transactions(txs))
       }
 
