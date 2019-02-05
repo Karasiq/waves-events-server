@@ -56,6 +56,15 @@ object ProjectDeps {
     "com.typesafe.play" %% "play-json" % "2.6.7"
   )
 
+  val ficus: Deps = "com.iheart" %% "ficus" % "1.4.2"
+
+  val monix = Def.setting(
+    Seq(
+      // exclusion and explicit dependency can likely be removed when monix 3 is released
+      ("io.monix" %% "monix" % "3.0.0-RC1").exclude("org.typelevel", "cats-effect_2.12"),
+      "org.typelevel" %% "cats-effect" % "0.10.1"
+    ))
+  
   def enableScalaMeta = addCompilerPlugin(
     ("org.scalameta" % "paradise" % "3.0.0-M11").cross(CrossVersion.full))
 }

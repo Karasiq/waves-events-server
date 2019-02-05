@@ -4,35 +4,37 @@ organization in ThisBuild := "com.wavesplatform"
 
 scalaVersion in ThisBuild := "2.12.8"
 
-val commonSettings = Seq(
+lazy val commonSettings = Seq(
   libraryDependencies ++=
     ProjectDeps.akka.all ++
     ProjectDeps.cats.all ++
+    ProjectDeps.monix.value ++
+    ProjectDeps.ficus ++
     ProjectDeps.playJson ++
     ProjectDeps.scalaTest.map(_ % "test"),
 
   // ProjectDeps.enableScalaMeta
 )
 
-val clientSettings = Seq(
+lazy val clientSettings = Seq(
   name := "waves-events-client"
 )
 
-val serverSettings = Seq(
+lazy val serverSettings = Seq(
   name := "waves-events-server"
 )
 
-val common = project
+lazy val common = project
   .settings(commonSettings)
 
-val client = project
+lazy val client = project
   .settings(commonSettings, clientSettings)
   .dependsOn(common)
 
-val server = project
+lazy val server = project
   .settings(commonSettings, serverSettings)
   .dependsOn(common, client)
 
-val tests = project
+lazy val tests = project
   .settings(commonSettings)
   .dependsOn(common, client, server)
