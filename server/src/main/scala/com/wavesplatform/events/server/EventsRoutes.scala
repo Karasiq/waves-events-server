@@ -14,7 +14,9 @@ import com.wavesplatform.events.client.actors.NodeTxFeed
 import scala.language.postfixOps
 
 class EventsRoutes(implicit as: ActorSystem, mat: Materializer) extends Directives {
-  def getStream(actor: ActorRef[NodeTxFeed.Message], subscription: NodeTxFeed.Subscription): Source[ServerSentEvent, NotUsed.type] = {
+  private[this] type SSEStream = Source[ServerSentEvent, NotUsed]
+
+  private[this] def getStream(actor: ActorRef[NodeTxFeed.Message], subscription: NodeTxFeed.Subscription): SSEStream = {
     ActorSource.actorRef[NodeTxFeed.Transactions](PartialFunction.empty, PartialFunction.empty, 128, OverflowStrategy.dropHead)
       .mapConcat(_.tx.toVector)
       .map(_ => ServerSentEvent(???, ???))

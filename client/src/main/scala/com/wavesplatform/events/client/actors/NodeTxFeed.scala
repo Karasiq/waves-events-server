@@ -72,7 +72,11 @@ object NodeTxFeed {
           }
 
         case UnsubscribeAll(actor) =>
-          // TODO
+          val newSubscriptions = subscriptions
+            .mapValues(_ - actor)
+            .filterNot(_._2.isEmpty)
+
+          active(timers, after)(height, newSubscriptions)
 
         case UpdateHeight =>
           Future.successful(23).foreach(height => ctx.self ! RequestNewTransactions(height))
