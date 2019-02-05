@@ -10,11 +10,12 @@ object ProjectDeps {
 
     def actors: Deps = Seq(
       "com.typesafe.akka" %% "akka-actor" % version,
-      "com.typesafe.akka" %% "akka-typed" % version,
+      "com.typesafe.akka" %% "akka-actor-typed" % version,
     )
 
     def streams: Deps = Seq(
-      "com.typesafe.akka" %% "akka-stream" % version
+      "com.typesafe.akka" %% "akka-stream" % version,
+      "com.typesafe.akka" %% "akka-stream-typed" % version
     )
 
     def http: Deps = Seq(
@@ -64,7 +65,9 @@ object ProjectDeps {
       ("io.monix" %% "monix" % "3.0.0-RC1").exclude("org.typelevel", "cats-effect_2.12"),
       "org.typelevel" %% "cats-effect" % "0.10.1"
     ))
-  
+
+  val wavesNode: Deps = "com.github.karasiq" %% "waves" % "0.15.2"
+
   def enableScalaMeta = addCompilerPlugin(
     ("org.scalameta" % "paradise" % "3.0.0-M11").cross(CrossVersion.full))
 }

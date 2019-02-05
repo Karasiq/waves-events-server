@@ -11,6 +11,7 @@ lazy val commonSettings = Seq(
     ProjectDeps.monix.value ++
     ProjectDeps.ficus ++
     ProjectDeps.playJson ++
+    ProjectDeps.wavesNode ++
     ProjectDeps.scalaTest.map(_ % "test"),
 
   // ProjectDeps.enableScalaMeta
