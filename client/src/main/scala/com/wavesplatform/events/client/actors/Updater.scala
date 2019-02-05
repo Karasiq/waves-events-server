@@ -131,14 +131,18 @@ object Updater {
       .mapValues(_.map(_._2))
 
     subscriptions.foreach { case (subscription, actors) =>
+      def sendTransactions(txs: Seq[Transaction]): Unit = {
+        actors.foreach(_ ! Transactions(txs))
+      }
+
       subscription match {
         case Subscription.Address(address) =>
           val txs = byAddressMap(address)
-          actors.foreach(_ ! Transactions(txs))
+          sendTransactions(txs)
 
         case Subscription.DataKey(key) =>
           val txs = byDataKeyMap(key)
-          actors.foreach(_ ! Transactions(txs))
+          sendTransactions(txs)
       }
     }
   }
