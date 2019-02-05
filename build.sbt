@@ -9,7 +9,9 @@ val commonSettings = Seq(
     ProjectDeps.akka.all ++
     ProjectDeps.cats.all ++
     ProjectDeps.playJson ++
-    ProjectDeps.scalaTest.map(_ % "test")
+    ProjectDeps.scalaTest.map(_ % "test"),
+
+  // ProjectDeps.enableScalaMeta
 )
 
 val clientSettings = Seq(

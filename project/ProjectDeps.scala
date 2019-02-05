@@ -5,11 +5,12 @@ object ProjectDeps {
   private[this] implicit def implicitSbtDepToDeps(m: ModuleID): Deps = Seq(m)
 
   object akka {
-    val version = "2.5.14"
-    val httpVersion = "10.1.3"
+    val version = "2.5.20"
+    val httpVersion = "10.1.7"
 
     def actors: Deps = Seq(
-      "com.typesafe.akka" %% "akka-actor" % version
+      "com.typesafe.akka" %% "akka-actor" % version,
+      "com.typesafe.akka" %% "akka-typed" % version,
     )
 
     def streams: Deps = Seq(
