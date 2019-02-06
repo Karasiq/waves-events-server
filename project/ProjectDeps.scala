@@ -28,6 +28,7 @@ object ProjectDeps {
 
     def testKit: Deps = Seq(
       "com.typesafe.akka" %% "akka-testkit" % version,
+      "com.typesafe.akka" %% "akka-actor-testkit-typed" % version,
       "com.typesafe.akka" %% "akka-stream-testkit" % version,
       "com.typesafe.akka" %% "akka-http-testkit" % httpVersion
     )
@@ -37,7 +38,7 @@ object ProjectDeps {
     )
 
     def all: Deps = {
-      actors ++ streams ++ http ++ persistence // ++ testKit.map(_ % "test")
+      actors ++ streams ++ http ++ persistence ++ testKit.map(_ % Test)
     }
   }
 
@@ -50,7 +51,9 @@ object ProjectDeps {
   }
 
   def scalaTest: Deps = Seq(
-    "org.scalatest" %% "scalatest" % "3.0.3"
+    "org.scalatest" %% "scalatest" % "3.0.3",
+    "org.mockito" % "mockito-all" % "1.10.19",
+    "org.scalamock" %% "scalamock-scalatest-support" % "3.6.0"
   )
 
   def playJson: Deps = Seq(

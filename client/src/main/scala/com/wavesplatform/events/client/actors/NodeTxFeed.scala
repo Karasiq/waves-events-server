@@ -14,7 +14,6 @@ import com.wavesplatform.transaction.lease.LeaseTransaction
 import com.wavesplatform.transaction.transfer.TransferTransaction
 import com.wavesplatform.transaction.{DataTransaction, Transaction}
 
-import scala.concurrent.Future
 import scala.language.implicitConversions
 
 object NodeTxFeed {
@@ -37,12 +36,11 @@ object NodeTxFeed {
   final case class Unsubscribe(ref: ActorRef[Transactions], subscription: Subscription) extends Message
   final case class UnsubscribeAll(ref: ActorRef[Transactions]) extends Message
 
+  case object UpdateHeight extends Message
   private final case class RequestNewTransactions(newHeight: Int) extends Message
   private final case class ProcessNewTransactions(blocks: TransactionsSeq) extends Message
   private final case class SetNewHeight(newHeight: Height) extends Message
   private final case class Failure(exc: Throwable) extends Message
-
-  private case object UpdateHeight extends Message
 
   // Timers
   private object Timers {
@@ -50,33 +48,32 @@ object NodeTxFeed {
   }
 
   // Behaviors
-  def behavior(config: EventsClientConfig)
+  def behavior(nodeApiClient: NodeApiClient, config: EventsClientConfig)
               (implicit mat: Materializer): Behavior[Message] = {
     Behaviors.withTimers { timers =>
       timers.startPeriodicTimer(Timers.UpdateHeight, UpdateHeight, config.updateHeightInterval)
-      active(timers, config)(0, Map.empty)
+      active(timers, nodeApiClient)(0, Map.empty)
     }
   }
 
-  private def active(timers: TimerScheduler[Message], config: EventsClientConfig)
+  private[this] def active(timers: TimerScheduler[Message], nodeApiClient: NodeApiClient)
                     (height: Height, subscriptions: SubscriptionMap)
                     (implicit mat: Materializer): Behavior[Message] = {
     Behaviors.receive[Message] { (ctx, msg) =>
       import ctx.executionContext
-      val nodeApiClient = NodeApiClient(config)
 
       msg match {
         case Subscribe(actor, subscription) =>
           val current = subscriptions.getOrElse(subscription, Set.empty)
           ctx.watchWith(actor, UnsubscribeAll(actor))
-          active(timers, config)(height, subscriptions + (subscription -> (current + actor)))
+          active(timers, nodeApiClient)(height, subscriptions + (subscription -> (current + actor)))
 
         case Unsubscribe(actor, subscription) =>
           subscriptions.get(subscription) match {
             case Some(actors) =>
               val newSet = actors - actor
-              if (newSet.isEmpty) active(timers, config)(height, subscriptions - subscription)
-              else active(timers, config)(height, subscriptions + (subscription -> newSet))
+              if (newSet.isEmpty) active(timers, nodeApiClient)(height, subscriptions - subscription)
+              else active(timers, nodeApiClient)(height, subscriptions + (subscription -> newSet))
 
             case None =>
               Behaviors.same
@@ -87,10 +84,10 @@ object NodeTxFeed {
             .mapValues(_ - actor)
             .filterNot(_._2.isEmpty)
 
-          active(timers, config)(height, newSubscriptions)
+          active(timers, nodeApiClient)(height, newSubscriptions)
 
         case UpdateHeight =>
-          Future.successful(23).foreach(height => ctx.self ! RequestNewTransactions(height))
+          nodeApiClient.height().foreach(height => ctx.self ! RequestNewTransactions(height))
           Behaviors.same
 
         case RequestNewTransactions(newHeight) =>
@@ -110,7 +107,7 @@ object NodeTxFeed {
 
         case SetNewHeight(newHeight) =>
           ctx.log.debug("Setting new height: {}", newHeight)
-          active(timers, config)(newHeight, Map.empty)
+          active(timers, nodeApiClient)(newHeight, subscriptions)
 
         case Failure(exc) =>
           ctx.log.error(exc, "Waves updater error")
@@ -140,6 +137,7 @@ object NodeTxFeed {
       .flatten
       .groupBy(_._1)
       .mapValues(_.map(_._2))
+      .withDefaultValue(Nil)
 
     val byDataKey = transactions.collect {
       case dt: DataTransaction => dt.data.map(de => (de.key, dt))
@@ -149,6 +147,7 @@ object NodeTxFeed {
       .flatten
       .groupBy(_._1)
       .mapValues(_.map(_._2))
+      .withDefaultValue(Nil)
 
     subscriptions.foreach { case (subscription, actors) =>
       def sendTransactions(txs: TransactionsSeq): Unit = {

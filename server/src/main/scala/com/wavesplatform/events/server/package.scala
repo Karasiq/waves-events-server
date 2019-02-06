@@ -6,6 +6,7 @@ import akka.http.scaladsl.server.PathMatcher1
 import com.wavesplatform.account.AddressOrAlias
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.Base58
+import com.wavesplatform.transaction.ValidationError.GenericError
 
 import scala.util.Success
 
@@ -18,7 +19,7 @@ package object server {
           case _ => Unmatched
         }
 
-      case _                           ⇒ Unmatched
+      case _ ⇒ Unmatched
     }
   }
 
@@ -26,16 +27,16 @@ package object server {
     def apply(path: Path) = path match {
       case Path.Segment(segment, tail) ⇒
         val result = for {
-          base58 <- Base58.decode(segment)
-          (address, _) <- AddressOrAlias.fromBytes(base58, 0)
-        } yield address
+          base58 <- Base58.decode(segment).toEither.left.map(GenericError(_))
+          address <- AddressOrAlias.fromBytes(base58, 0)
+        } yield address._1
 
         result match {
-          case Success(value) => Matched(tail, Tuple1(value))
+          case Right(value) => Matched(tail, Tuple1(value))
           case _ => Unmatched
         }
 
-      case _                           ⇒ Unmatched
+      case _ ⇒ Unmatched
     }
   }
 
