@@ -85,8 +85,12 @@ object NodeTxFeed {
           Behaviors.same
 
         case RequestNewTransactions(newHeight) =>
-          if (newHeight > height) {
-            ctx.log.debug("Requesting new blocks from {}", newHeight)
+          if (subscriptions.isEmpty) {
+            ctx.log.info("Skipping blocks from {} to {}", height, newHeight)
+            ctx.self ! SetNewHeight(newHeight)
+            Behaviors.same
+          } else if (newHeight > height) {
+            ctx.log.info("Requesting new blocks from {}", newHeight)
             nodeApiClient.blocks(height, newHeight)
               .map(block => ProcessNewTransactions(block.transactions))
               .runWith(ActorSink.actorRef(ctx.self, SetNewHeight(newHeight), Failure))
@@ -100,11 +104,11 @@ object NodeTxFeed {
           Behaviors.same
 
         case SetNewHeight(newHeight) =>
-          ctx.log.debug("Setting new height: {}", newHeight)
+          ctx.log.info("Setting new height: {}", newHeight)
           active(timers, nodeApiClient)(newHeight, subscriptions)
 
         case Failure(exc) =>
-          ctx.log.error(exc, "Waves updater error")
+          ctx.log.error(exc, "Node transactions feed error")
           Behaviors.same
       }
     }

@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.adapter._
 import com.wavesplatform.account.AddressOrAlias
 import com.wavesplatform.events.AddressedTransaction
 import com.wavesplatform.events.client.actors.NodeTxFeed
-import com.wavesplatform.events.client.actors.NodeTxFeed.{Subscription, UpdateHeight}
+import com.wavesplatform.events.client.actors.NodeTxFeed.Subscription
 import com.wavesplatform.events.config.EventsClientConfig
 import com.wavesplatform.events.tests.{DefaultSpec, TestNodeApiClient}
 import com.wavesplatform.transaction.transfer.TransferTransaction
@@ -23,7 +23,7 @@ class NodeTxFeedSpec extends DefaultSpec {
     val inbox = TestProbe[NodeTxFeed.Transactions]("test-feed-receiver")
     val testFeed = system.spawn(NodeTxFeed.behavior(client, config), "test-feed")
     testFeed ! NodeTxFeed.Subscribe(inbox.ref, Subscription.Address(recipient.stringRepr))
-    testFeed ! UpdateHeight
+    // testFeed ! UpdateHeight
 
     val message = inbox.receiveMessage(10 seconds)
     message.tx shouldNot be (empty)
