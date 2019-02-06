@@ -81,6 +81,7 @@ object NodeTxFeed {
           active(timers, nodeApiClient)(height, newSubscriptions)
 
         case UpdateHeight =>
+          ctx.log.debug("Requesting new height, current is {}", height)
           nodeApiClient.height().foreach(height => ctx.self ! RequestNewTransactions(height))
           Behaviors.same
 
@@ -90,7 +91,7 @@ object NodeTxFeed {
             ctx.self ! SetNewHeight(newHeight)
             Behaviors.same
           } else if (newHeight > height) {
-            ctx.log.info("Requesting new blocks from {}", newHeight)
+            ctx.log.info("Requesting new blocks from {} to {}", height, newHeight)
             nodeApiClient.blocks(height, newHeight)
               .map(block => ProcessNewTransactions(block.transactions))
               .runWith(ActorSink.actorRef(ctx.self, SetNewHeight(newHeight), Failure))
@@ -100,6 +101,7 @@ object NodeTxFeed {
           }
 
         case ProcessNewTransactions(transactions) =>
+          ctx.log.info("Processing {} transactions", transactions.length)
           processTransactions(subscriptions)(transactions)
           Behaviors.same
 
