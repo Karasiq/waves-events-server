@@ -6,7 +6,7 @@ import akka.stream.Materializer
 import akka.stream.typed.scaladsl.ActorSink
 import com.wavesplatform.events.client.NodeApiClient
 import com.wavesplatform.events.config.EventsClientConfig
-import com.wavesplatform.events.{AddressedTransaction, Height, JsonTransaction}
+import com.wavesplatform.events.{AddressedTransaction, DataTransaction, Height, JsonTransaction}
 
 import scala.language.implicitConversions
 
@@ -18,7 +18,7 @@ object NodeTxFeed {
   sealed trait Subscription
   object Subscription {
     final case class Address(address: String) extends Subscription
-    // final case class DataKey(key: String) extends Subscription
+    final case class DataKey(key: String) extends Subscription
   }
 
   final case class Transactions(tx: TransactionsSeq) extends AnyVal
@@ -120,15 +120,15 @@ object NodeTxFeed {
       .mapValues(_.map(_._2))
       .withDefaultValue(Nil)
 
-    /* val byDataKey = transactions.collect {
-      case dt: DataTransaction => dt.data.map(de => (de.key, dt))
+    val byDataKey = transactions.collect {
+      case dt: DataTransaction => dt.keys.map((_, dt))
     }
 
     val byDataKeyMap = byDataKey
       .flatten
       .groupBy(_._1)
       .mapValues(_.map(_._2))
-      .withDefaultValue(Nil)*/
+      .withDefaultValue(Nil)
 
     subscriptions.foreach { case (subscription, actors) =>
       def sendTransactions(txs: TransactionsSeq): Unit = {
@@ -140,9 +140,9 @@ object NodeTxFeed {
           val txs = byAddressMap(address)
           sendTransactions(txs)
 
-        /* case Subscription.DataKey(key) =>
+        case Subscription.DataKey(key) =>
           val txs = byDataKeyMap(key)
-          sendTransactions(txs) */
+          sendTransactions(txs)
       }
     }
   }
