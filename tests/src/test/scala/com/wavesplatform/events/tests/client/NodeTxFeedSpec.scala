@@ -3,6 +3,7 @@ package com.wavesplatform.events.tests.client
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.scaladsl.adapter._
 import com.wavesplatform.account.AddressOrAlias
+import com.wavesplatform.events.AddressedTransaction
 import com.wavesplatform.events.client.actors.NodeTxFeed
 import com.wavesplatform.events.client.actors.NodeTxFeed.{Subscription, UpdateHeight}
 import com.wavesplatform.events.config.EventsClientConfig
@@ -21,11 +22,11 @@ class NodeTxFeedSpec extends DefaultSpec {
   "Node TX feed" should "fetch transactions" in {
     val inbox = TestProbe[NodeTxFeed.Transactions]("test-feed-receiver")
     val testFeed = system.spawn(NodeTxFeed.behavior(client, config), "test-feed")
-    testFeed ! NodeTxFeed.Subscribe(inbox.ref, Subscription.Address(recipient))
+    testFeed ! NodeTxFeed.Subscribe(inbox.ref, Subscription.Address(recipient.stringRepr))
     testFeed ! UpdateHeight
 
     val message = inbox.receiveMessage(10 seconds)
     message.tx shouldNot be (empty)
-    message.tx.head should matchPattern { case tt: TransferTransaction if tt.recipient == recipient => () }
+    message.tx.head should matchPattern { case AddressedTransaction(rec, _) if rec == recipient.stringRepr => () }
   }
 }

@@ -18,12 +18,12 @@ class EventsRoutes(feed: ActorRef[NodeTxFeed.Message])(implicit as: ActorSystem,
   private[this] type SSEStream = Source[ServerSentEvent, NotUsed]
 
   val ssePaths: Route = path("transactions") {
-    path("address" / Base58Address) { address =>
+    path("address" / Segment) { address =>
       complete(getJsonStream(NodeTxFeed.Subscription.Address(address)))
-    } ~
+    } /* ~
     path("data-key" / Segment) { dataKey =>
       complete(getJsonStream(NodeTxFeed.Subscription.DataKey(dataKey)))
-    }
+    }*/
   }
 
   val routes: Route = get(ssePaths)
@@ -31,7 +31,7 @@ class EventsRoutes(feed: ActorRef[NodeTxFeed.Message])(implicit as: ActorSystem,
   private[this] def getJsonStream(subscription: NodeTxFeed.Subscription): SSEStream = {
     ActorSource.actorRef[NodeTxFeed.Transactions](PartialFunction.empty, PartialFunction.empty, 128, OverflowStrategy.dropHead)
       .mapConcat(_.tx.toVector)
-      .map(tx => ServerSentEvent(Json.stringify(tx.json())))
+      .map(tx => ServerSentEvent(Json.stringify(tx.json)))
       .mapMaterializedValue(feed ! NodeTxFeed.Subscribe(_, subscription))
       .mapMaterializedValue(_ => NotUsed)
   }

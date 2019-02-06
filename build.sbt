@@ -11,7 +11,6 @@ lazy val commonSettings = Seq(
     ProjectDeps.monix.value ++
     ProjectDeps.ficus ++
     ProjectDeps.playJson ++
-    ProjectDeps.wavesNode ++
     ProjectDeps.scalaTest.map(_ % "test"),
 
   // ProjectDeps.enableScalaMeta
@@ -33,5 +32,5 @@ lazy val serverApp = (project in file("server") / "app")
   .dependsOn(server)
 
 lazy val tests = project
-  .settings(commonSettings)
+  .settings(commonSettings, libraryDependencies ++= ProjectDeps.wavesNode)
   .dependsOn(common, client, server)

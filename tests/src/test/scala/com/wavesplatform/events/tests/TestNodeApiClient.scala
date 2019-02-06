@@ -2,11 +2,12 @@ package com.wavesplatform.events.tests
 
 import akka.stream.scaladsl.Source
 import com.wavesplatform.block.Block
-import com.wavesplatform.events.Height
 import com.wavesplatform.events.client.NodeApiClient
 import com.wavesplatform.events.streams.BlockStream
+import com.wavesplatform.events.{Height, JsonBlock}
 
 import scala.concurrent.Future
+import scala.language.implicitConversions
 
 class TestNodeApiClient extends NodeApiClient {
   object state {
@@ -19,7 +20,8 @@ class TestNodeApiClient extends NodeApiClient {
   }
 
   override def blocks(fromHeight: Height, toHeight: Height): BlockStream = {
-    Source(state.blocks.slice(fromHeight, toHeight).toVector)
+    def toJsonBlock(b: Block): JsonBlock = JsonBlock.format.reads(b.json()).get
+    Source(state.blocks.slice(fromHeight, toHeight).toVector.map(toJsonBlock))
   }
 
   def generateBlocks(): Unit = {

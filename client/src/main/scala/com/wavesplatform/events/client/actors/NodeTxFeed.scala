@@ -4,27 +4,21 @@ import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.stream.Materializer
 import akka.stream.typed.scaladsl.ActorSink
-import com.wavesplatform.account.{Address, AddressOrAlias, Alias}
-import com.wavesplatform.events.Height
 import com.wavesplatform.events.client.NodeApiClient
 import com.wavesplatform.events.config.EventsClientConfig
-import com.wavesplatform.lang.v1.traits.domain.Recipient
-import com.wavesplatform.lang.v1.traits.domain.Tx.MassTransfer
-import com.wavesplatform.transaction.lease.LeaseTransaction
-import com.wavesplatform.transaction.transfer.TransferTransaction
-import com.wavesplatform.transaction.{DataTransaction, Transaction}
+import com.wavesplatform.events.{AddressedTransaction, Height, JsonTransaction}
 
 import scala.language.implicitConversions
 
 object NodeTxFeed {
   // Types
   type SubscriptionMap = Map[Subscription, Set[ActorRef[Transactions]]]
-  type TransactionsSeq = Seq[Transaction]
+  type TransactionsSeq = Seq[JsonTransaction]
 
   sealed trait Subscription
   object Subscription {
-    final case class Address(address: AddressOrAlias) extends Subscription
-    final case class DataKey(key: String) extends Subscription
+    final case class Address(address: String) extends Subscription
+    // final case class DataKey(key: String) extends Subscription
   }
 
   final case class Transactions(tx: TransactionsSeq) extends AnyVal
@@ -94,7 +88,7 @@ object NodeTxFeed {
           if (newHeight > height) {
             ctx.log.debug("Requesting new blocks from {}", newHeight)
             nodeApiClient.blocks(height, newHeight)
-              .map(block => ProcessNewTransactions(block.transactionData))
+              .map(block => ProcessNewTransactions(block.transactions))
               .runWith(ActorSink.actorRef(ctx.self, SetNewHeight(newHeight), Failure))
             Behaviors.same
           } else {
@@ -117,29 +111,16 @@ object NodeTxFeed {
   }
 
   private def processTransactions(subscriptions: SubscriptionMap)(transactions: TransactionsSeq): Unit = {
-    implicit def recipientToAddressOrAlias(r: Recipient): AddressOrAlias = (r match {
-      case Recipient.Address(bytes) => Address.fromBytes(bytes.arr)
-      case Recipient.Alias(alias) => Alias.fromString(alias)
-    }).right.getOrElse(throw new IllegalArgumentException(s"Invalid recipient: $r"))
-
     val byAddress = transactions.collect {
-      case tt: TransferTransaction =>
-        (tt.recipient, tt) :: Nil
-
-      case lt: LeaseTransaction =>
-        (lt.recipient, lt) :: Nil
-
-      case mt: MassTransfer =>
-        mt.transfers.map(ti => (ti.recipient: AddressOrAlias, mt))
+      case at: AddressedTransaction => (at.recipient, at)
     }
 
     val byAddressMap = byAddress
-      .flatten
       .groupBy(_._1)
       .mapValues(_.map(_._2))
       .withDefaultValue(Nil)
 
-    val byDataKey = transactions.collect {
+    /* val byDataKey = transactions.collect {
       case dt: DataTransaction => dt.data.map(de => (de.key, dt))
     }
 
@@ -147,7 +128,7 @@ object NodeTxFeed {
       .flatten
       .groupBy(_._1)
       .mapValues(_.map(_._2))
-      .withDefaultValue(Nil)
+      .withDefaultValue(Nil)*/
 
     subscriptions.foreach { case (subscription, actors) =>
       def sendTransactions(txs: TransactionsSeq): Unit = {
@@ -159,9 +140,9 @@ object NodeTxFeed {
           val txs = byAddressMap(address)
           sendTransactions(txs)
 
-        case Subscription.DataKey(key) =>
+        /* case Subscription.DataKey(key) =>
           val txs = byDataKeyMap(key)
-          sendTransactions(txs)
+          sendTransactions(txs) */
       }
     }
   }
