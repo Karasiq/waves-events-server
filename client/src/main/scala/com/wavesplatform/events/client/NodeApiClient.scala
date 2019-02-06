@@ -40,7 +40,7 @@ private[client] class NodeApiClientImpl(config: EventsClientConfig)(implicit sys
 
   def blocks(fromHeight: Height, toHeight: Height = Int.MaxValue): BlockStream = {
     Source(fromHeight to toHeight by config.blocksBatchSize)
-      .mapAsync(1)(height => apiRequest[Seq[JsonBlock]](s"blocks/seq/$height/${height + config.blocksBatchSize}"))
+      .mapAsync(1)(height => apiRequest[Seq[JsonBlock]](s"blocks/seq/$height/${(height + config.blocksBatchSize) min toHeight}"))
       .takeWhile(_.nonEmpty)
       .mapConcat(_.toVector)
   }
