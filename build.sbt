@@ -32,5 +32,18 @@ lazy val serverApp = (project in file("server") / "app")
   .dependsOn(server)
 
 lazy val tests = project
-  .settings(commonSettings, libraryDependencies ++= ProjectDeps.wavesNode)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= ProjectDeps.wavesNode,
+    resolvers ++= Seq(
+      Resolver.bintrayRepo("ethereum", "maven"),
+      Resolver.bintrayRepo("dnvriend", "maven"),
+      Resolver.sbtPluginRepo("releases")
+    ),
+    fork in run := true,
+    javaOptions in run ++= Seq(
+      "-XX:+IgnoreUnrecognizedVMOptions",
+      "--add-modules=java.xml.bind"
+    )
+  )
   .dependsOn(common, client, server)

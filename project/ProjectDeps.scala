@@ -38,7 +38,7 @@ object ProjectDeps {
     )
 
     def all: Deps = {
-      actors ++ streams ++ http ++ persistence ++ testKit.map(_ % Test)
+      actors ++ streams ++ http ++ persistence ++ slf4j ++ testKit.map(_ % Test)
     }
   }
 
