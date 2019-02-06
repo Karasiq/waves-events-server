@@ -7,7 +7,7 @@ import akka.testkit.TestKit
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Inside, Matchers}
 
-class DefaultSpec extends TestKit(ActorSystem("test")) with FlatSpecLike with Matchers with BeforeAndAfterAll with MockFactory with TestUtils with Inside {
+abstract class DefaultSpec extends TestKit(ActorSystem("test")) with FlatSpecLike with Matchers with BeforeAndAfterAll with MockFactory with TestUtils with Inside {
   implicit val typedSystem = system.toTyped
   implicit val materializer = ActorMaterializer()
 
