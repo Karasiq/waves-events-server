@@ -16,7 +16,7 @@ class NodeTxFeedSpec extends DefaultSpec {
   val config = EventsClientConfig("localhost", 10, 1 second)
   val client = new TestNodeApiClient
   client.generateBlocks()
-  val recipient = client.state.blocks.random.transactionData.random.asInstanceOf[TransferTransaction].recipient
+  val Some(recipient) = client.state.blocks.random.transactionData.collectFirst { case tt: TransferTransaction => tt.recipient }
   val Some(Seq(dataSubject, _*)) = client.state.blocks.random.transactionData.collectFirst { case dt: com.wavesplatform.transaction.DataTransaction => dt.data.map(_.key) }
 
   "Node TX feed" should "fetch transactions" in {
