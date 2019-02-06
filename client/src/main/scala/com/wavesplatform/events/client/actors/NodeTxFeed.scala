@@ -138,7 +138,7 @@ object NodeTxFeed {
 
     subscriptions.foreach { case (subscription, actors) =>
       def sendTransactions(txs: TransactionsSeq): Unit = {
-        actors.foreach(_ ! Transactions(txs))
+        if (txs.nonEmpty) actors.foreach(_ ! Transactions(txs))
       }
 
       subscription match {

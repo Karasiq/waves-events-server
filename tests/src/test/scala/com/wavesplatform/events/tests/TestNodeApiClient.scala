@@ -25,7 +25,11 @@ class TestNodeApiClient extends NodeApiClient {
   }
 
   def generateBlocks(): Unit = {
-    state.height = 100
-    state.blocks = for (_ <- 1 to 100) yield TestBlock.create(for (_ <- 1 to 100; tx <- TransactionGen.transferV2Gen.sample) yield tx)
+    state.height = 5
+    state.blocks = for (_ <- 1 to state.height) yield {
+      val transfers = for (_ <- 1 to 5; tx <- TransactionGen.transferV2Gen.sample) yield tx
+      val datas = for (_ <- 1 to 5; tx <- TransactionGen.dataTransactionGen.sample) yield tx
+      TestBlock.create(transfers ++ datas)
+    }
   }
 }
