@@ -20,7 +20,7 @@ object JsonTransaction {
   )
 }
 
-final case class AddressedTransaction(recipient: String, json: JsObject) extends JsonTransaction
+final case class AddressedTransaction(recipient: Address, json: JsObject) extends JsonTransaction
 object AddressedTransaction {
   implicit val format = Format[JsonTransaction](
     Reads {
@@ -34,7 +34,7 @@ object AddressedTransaction {
   )
 }
 
-final case class DataTransaction(keys: Seq[String], json: JsObject) extends JsonTransaction
+final case class DataTransaction(keys: Seq[DataKey], json: JsObject) extends JsonTransaction
 object DataTransaction {
   implicit val format = Format[JsonTransaction](
     Reads {
